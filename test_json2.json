@@ -1,0 +1,10 @@
+{
+    "text2": "Here's some descriptive text 2",
+    "number33": 33,
+    "descriptiveText": "Here's some descriptive text",
+    "veryImportantNumber": 43,
+    "relevancyCheck": true,
+    "important": false,
+    "veryImportantNumber2": 13,
+    "lessImportantNumbers": [32, 45, 93, 112]
+}
