@@ -43,6 +43,10 @@ int main()
     std::cout << "booleans: " << jc.booleans << std::endl;
     std::cout << "lists: " << jc.lists << std::endl;
     std::cout << "---------------------\n";
+    std::cout << "number33 value is " << jo.getNumberValue("number33") << std::endl;
+    //std::cout << "descriptiveText has value " << jo.getTextValue("descriptiveText") << std::endl;
+    std::cout << "important has value " << jo.getBooleanValue("important") << std::endl;
+    std::cout << "relevancyCheck has value " << jo.getBooleanValue("relevancyCheck") << std::endl;
 
     return 0;
 }

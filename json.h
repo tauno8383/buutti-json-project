@@ -103,6 +103,43 @@ public:
         return n;
     }
 
+    int getNumberValue(std::string valueName) // -> Palauttaa arvon, jonka nimi on sama kuin valueName muuttujan
+    {
+        int r_value;
+        for (JsonData data : _datas)
+        {
+            if (data._valueType == ValueType::integer && data._name == valueName)
+                r_value = data._value._intValue;
+            else if (data._valueType == ValueType::object)
+                r_value = data._value._object->getNumberValue(valueName);
+        }
+        return r_value;
+    }
+    std::string getTextValue(std::string valueName) //-> Palauttaa arvon, jonka nimi on sama kuin valueName muuttujan
+    {
+        std::string r_value;
+        for (JsonData data : _datas)
+        {
+            if (data._valueType == ValueType::string && data._name == valueName)
+                r_value = *data._value._stringValue;
+            else if (data._valueType == ValueType::object)
+                r_value = data._value._object->getTextValue(valueName);
+        }
+        return r_value;
+    }
+    bool getBooleanValue(std::string valueName) //-> Palauttaa arvon, jonka nimi on sama kuin valueName muuttujan
+    {
+        bool r_value;
+        for (JsonData data : _datas)
+        {
+            if (data._valueType == ValueType::boolean && data._name == valueName)
+                r_value = data._value._boolValue;
+            else if (data._valueType == ValueType::object)
+                r_value = data._value._object->getBooleanValue(valueName);
+        }
+        return r_value;
+    }
+
 private:
     std::vector<JsonData> _datas;
     enum IstreamState : char
@@ -121,8 +158,8 @@ private:
         int i_data_starts = str.find(IstreamState::string);
         str = str.substr(i_data_starts + 1);
         int i_data_ends;
-        int i_in_array{0};  // i.e how deep in array, say [[[]]] is 3
-        int i_in_object{0}; // i.e how deep in object, say {{{{}}}} is 4
+        int i_in_array{0};  // i.e how deep in array, say [[[]]] is 3 in the midle
+        int i_in_object{0}; // i.e how deep in object, say {{{{}}}} is 4 in the midle
         for (int i = 0; i < str.length(); ++i)
         {
             char c = str[i];
@@ -214,7 +251,8 @@ private:
             r_value._values = &dummyVector;
             r_value_type = ValueType::array;
         }
-        else{
+        else
+        {
             r_value_type = ValueType::unknown;
         }
         return std::pair<Value, ValueType>{r_value, r_value_type};
