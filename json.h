@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <utility>
 #include "my_util.h"
 
 class JsonObject;
@@ -17,13 +18,23 @@ union Value
     JsonObject *_object;
 };
 
+enum ValueType
+{
+    boolean,
+    integer,
+    string,
+    array,
+    object,
+    unknown, // unknown type
+};
+
 struct JsonData
 {
     std::string _name;
     Value _value;
+    ValueType _valueType;
 
-    JsonData(std::string name) : _name{name} {}
-    JsonData(std::string name, Value value) : _name{name}, _value{value} {};
+    JsonData(std::string name, Value value, ValueType valueType) : _name{name}, _value{value}, _valueType{valueType} {};
 };
 
 class JsonObject
@@ -37,14 +48,63 @@ public:
             dataStr = nextData(ojbectStr);
             std::cout << dataStr << std::endl;
             std::string name = extractName(dataStr);
-            Value value = extractValue(dataStr);
-            JsonData jd{name, value};
-            _data.push_back(jd);
+            std::pair<Value, ValueType> value = extractValue(dataStr);
+            JsonData jd{name, value.first, value.second};
+            _datas.push_back(jd);
         } while (ojbectStr.length() != 0);
     }
 
+    int numbers() // kuinka monta numeroarvoa objekti sisältää
+    {
+        int n{0};
+        for (JsonData data : _datas)
+        {
+            if (data._valueType == ValueType::object)
+                n += data._value._object->numbers();
+            else if (data._valueType == ValueType::integer)
+                ++n;
+        }
+        return n;
+    }
+    int texts() //  – || –
+    {
+        int n{0};
+        for (JsonData data : _datas)
+        {
+            if (data._valueType == ValueType::object)
+                n += data._value._object->texts();
+            else if (data._valueType == ValueType::string)
+                ++n;
+        }
+        return n;
+    }
+    int booleans() // | – || –
+    {
+        int n{0};
+        for (JsonData data : _datas)
+        {
+            if (data._valueType == ValueType::object)
+                n += data._value._object->booleans();
+            else if (data._valueType == ValueType::boolean)
+                ++n;
+        }
+        return n;
+    }
+    int lists() // – ||
+    {
+        int n{0};
+        for (JsonData data : _datas)
+        {
+            if (data._valueType == ValueType::object)
+                n += data._value._object->lists();
+            else if (data._valueType == ValueType::array)
+                ++n;
+        }
+        return n;
+    }
+
 private:
-    std::vector<JsonData> _data;
+    std::vector<JsonData> _datas;
     enum IstreamState : char
     {
         string = '"',
@@ -100,9 +160,10 @@ private:
         return name;
     }
 
-    Value extractValue(std::string dataStr)
+    std::pair<Value, ValueType> extractValue(std::string dataStr)
     {
-        Value value;
+        Value r_value;
+        ValueType r_value_type;
         int i{0};
         char c;
         while (isspace(c = dataStr[i]) || c == IstreamState::valueForData) // skip spaces and ':' to reach the actual vale.
@@ -116,26 +177,31 @@ private:
                 ;
             std::string digit_str = dataStr.substr(i, i_digit_end);
             int int_val = std::stoi(digit_str);
-            value._intValue = int_val;
+            r_value._intValue = int_val;
+            r_value_type = ValueType::integer;
         }
         else if (c == IstreamState::string) // if a string value
         {
             int i_str_end = findNthOccur(dataStr, IstreamState::string, 2);
             std::string str_vale = dataStr.substr(i + 1, (i_str_end - i) - 1);
-            value._stringValue = &str_vale;
+            r_value._stringValue = &str_vale;
+            r_value_type = ValueType::string;
         }
         else if (dataStr[i] == 't' && dataStr[++i] == 'r' && dataStr[++i] == 'u' && dataStr[++i] == 'e') // if a boolean value true
         {
-            value._boolValue = true;
+            r_value._boolValue = true;
+            r_value_type = ValueType::boolean;
         }
         else if (dataStr[i] == 'f' && dataStr[++i] == 'a' && dataStr[++i] == 'l' && dataStr[++i] == 's' && dataStr[++i] == 'e') // if a boolean value false
         {
-            value._boolValue = false;
+            r_value._boolValue = false;
+            r_value_type = ValueType::boolean;
         }
         else if (c == IstreamState::inOjbect) // if an Json object value
         {
             JsonObject jo{dataStr};
-            value._object = &jo;
+            r_value._object = &jo;
+            r_value_type = ValueType::object;
         }
         else if (c == IstreamState::inArray) // if an array value
         {
@@ -145,8 +211,12 @@ private:
             Value dummyVale2;
             dummyVale2._boolValue = false;
             std::vector<Value> dummyVector{dummyVale1, dummyVale2};
-            value._values = &dummyVector;
+            r_value._values = &dummyVector;
+            r_value_type = ValueType::array;
         }
-        return value;
+        else{
+            r_value_type = ValueType::unknown;
+        }
+        return std::pair<Value, ValueType>{r_value, r_value_type};
     }
 };
