@@ -4,21 +4,12 @@
 #include <fstream>
 #include <vector>
 #include <utility>
+#include <memory>
 #include "my_util.h"
 
 class JsonObject;
 
-union Value
-{
-    // Ponential values for Json data. Only one of those will be used so thus "union".
-    bool _boolValue;
-    int _intValue;
-    std::string *_stringValue;
-    std::vector<Value> *_values; // For Json arrays
-    JsonObject *_object;
-};
-
-enum ValueType
+enum ValueType // for identifying which value has been initialized
 {
     boolean,
     integer,
@@ -28,13 +19,30 @@ enum ValueType
     unknown, // unknown type
 };
 
+struct Value
+{
+    // Ponential values for Json data. Only one of those will be used
+    bool _boolValue;
+    int _intValue;
+    std::string _stringValue;
+    std::vector<std::shared_ptr<Value>> _values; // For Json arrays
+    std::shared_ptr<JsonObject> _p_object;
+    ValueType _valueType;
+
+    Value() : _valueType{ValueType::unknown} {}
+    Value(bool booleanValue) : _boolValue{booleanValue}, _valueType{ValueType::boolean} {}
+    Value(int intValue) : _intValue{intValue}, _valueType{ValueType::integer} {}
+    Value(std::string stringValue) : _stringValue{stringValue}, _valueType{ValueType::string} {}
+    Value(std::vector<std::shared_ptr<Value>> values) : _values{values}, _valueType{ValueType::array} {}
+    Value(std::shared_ptr<JsonObject> p_object) : _p_object{p_object}, _valueType{ValueType::object} {}
+};
+
 struct JsonData
 {
     std::string _name;
     Value _value;
-    ValueType _valueType;
 
-    JsonData(std::string name, Value value, ValueType valueType) : _name{name}, _value{value}, _valueType{valueType} {};
+    JsonData(std::string name, Value value) : _name{name}, _value{value} {};
 };
 
 class JsonObject
@@ -48,56 +56,56 @@ public:
             dataStr = nextData(ojbectStr);
             std::cout << dataStr << std::endl;
             std::string name = extractName(dataStr);
-            std::pair<Value, ValueType> value = extractValue(dataStr);
-            JsonData jd{name, value.first, value.second};
+            Value value = extractValue(dataStr);
+            JsonData jd{name, value};
             _datas.push_back(jd);
         } while (ojbectStr.length() != 0);
     }
 
-    int numbers() // kuinka monta numeroarvoa objekti sisältää
+    int numbers() // how many int values
     {
         int n{0};
         for (JsonData data : _datas)
         {
-            if (data._valueType == ValueType::object)
-                n += data._value._object->numbers();
-            else if (data._valueType == ValueType::integer)
+            if (data._value._valueType == ValueType::object)
+                n += data._value._p_object->numbers();
+            else if (data._value._valueType == ValueType::integer)
                 ++n;
         }
         return n;
     }
-    int texts() //  – || –
+    int texts() // how many text values
     {
         int n{0};
         for (JsonData data : _datas)
         {
-            if (data._valueType == ValueType::object)
-                n += data._value._object->texts();
-            else if (data._valueType == ValueType::string)
+            if (data._value._valueType == ValueType::object)
+                n += data._value._p_object->texts();
+            else if (data._value._valueType == ValueType::string)
                 ++n;
         }
         return n;
     }
-    int booleans() // | – || –
+    int booleans() // how many boolean values
     {
         int n{0};
         for (JsonData data : _datas)
         {
-            if (data._valueType == ValueType::object)
-                n += data._value._object->booleans();
-            else if (data._valueType == ValueType::boolean)
+            if (data._value._valueType == ValueType::object)
+                n += data._value._p_object->booleans();
+            else if (data._value._valueType == ValueType::boolean)
                 ++n;
         }
         return n;
     }
-    int lists() // – ||
+    int lists() // how many lists
     {
         int n{0};
         for (JsonData data : _datas)
         {
-            if (data._valueType == ValueType::object)
-                n += data._value._object->lists();
-            else if (data._valueType == ValueType::array)
+            if (data._value._valueType == ValueType::object)
+                n += data._value._p_object->lists();
+            else if (data._value._valueType == ValueType::array)
                 ++n;
         }
         return n;
@@ -105,39 +113,36 @@ public:
 
     int getNumberValue(std::string valueName) // -> Palauttaa arvon, jonka nimi on sama kuin valueName muuttujan
     {
-        int r_value;
         for (JsonData data : _datas)
         {
-            if (data._valueType == ValueType::integer && data._name == valueName)
-                r_value = data._value._intValue;
-            else if (data._valueType == ValueType::object)
-                r_value = data._value._object->getNumberValue(valueName);
+            if (data._value._valueType == ValueType::integer && data._name == valueName)
+                return data._value._intValue;
+            if (data._value._valueType == ValueType::object)
+                return data._value._p_object->getNumberValue(valueName);
         }
-        return r_value;
+        return -1;
     }
     std::string getTextValue(std::string valueName) //-> Palauttaa arvon, jonka nimi on sama kuin valueName muuttujan
     {
-        std::string r_value;
         for (JsonData data : _datas)
         {
-            if (data._valueType == ValueType::string && data._name == valueName)
-                r_value = *data._value._stringValue;
-            else if (data._valueType == ValueType::object)
-                r_value = data._value._object->getTextValue(valueName);
+            if (data._value._valueType == ValueType::string && data._name == valueName)
+                return data._value._stringValue;
+            if (data._value._valueType == ValueType::object)
+                return data._value._p_object->getTextValue(valueName);
         }
-        return r_value;
+        return "NO CORRESPONDING TEXT!";
     }
     bool getBooleanValue(std::string valueName) //-> Palauttaa arvon, jonka nimi on sama kuin valueName muuttujan
     {
-        bool r_value;
         for (JsonData data : _datas)
         {
-            if (data._valueType == ValueType::boolean && data._name == valueName)
-                r_value = data._value._boolValue;
-            else if (data._valueType == ValueType::object)
-                r_value = data._value._object->getBooleanValue(valueName);
+            if (data._value._valueType == ValueType::boolean && data._name == valueName)
+                return data._value._boolValue;
+            if (data._value._valueType == ValueType::object)
+                return data._value._p_object->getBooleanValue(valueName);
         }
-        return r_value;
+        return false;
     }
 
 private:
@@ -145,7 +150,7 @@ private:
     enum IstreamState : char
     {
         string = '"',
-        inOjbect = '{',
+        inObject = '{',
         outObject = '}',
         inArray = '[',
         outArray = ']',
@@ -170,7 +175,7 @@ private:
             }
             switch (c)
             {
-            case IstreamState::inOjbect:
+            case IstreamState::inObject:
                 ++i_in_object;
                 break;
             case IstreamState::outObject:
@@ -197,10 +202,8 @@ private:
         return name;
     }
 
-    std::pair<Value, ValueType> extractValue(std::string dataStr)
+    Value extractValue(std::string dataStr)
     {
-        Value r_value;
-        ValueType r_value_type;
         int i{0};
         char c;
         while (isspace(c = dataStr[i]) || c == IstreamState::valueForData) // skip spaces and ':' to reach the actual vale.
@@ -214,47 +217,51 @@ private:
                 ;
             std::string digit_str = dataStr.substr(i, i_digit_end);
             int int_val = std::stoi(digit_str);
-            r_value._intValue = int_val;
-            r_value_type = ValueType::integer;
+            return Value{int_val};
+            ;
         }
         else if (c == IstreamState::string) // if a string value
         {
             int i_str_end = findNthOccur(dataStr, IstreamState::string, 2);
-            std::string str_vale = dataStr.substr(i + 1, (i_str_end - i) - 1);
-            r_value._stringValue = &str_vale;
-            r_value_type = ValueType::string;
+            std::string str_value = dataStr.substr(i + 1, (i_str_end - i) - 1);
+            return Value{str_value};
         }
         else if (dataStr[i] == 't' && dataStr[++i] == 'r' && dataStr[++i] == 'u' && dataStr[++i] == 'e') // if a boolean value true
         {
-            r_value._boolValue = true;
-            r_value_type = ValueType::boolean;
+            return Value(true);
         }
         else if (dataStr[i] == 'f' && dataStr[++i] == 'a' && dataStr[++i] == 'l' && dataStr[++i] == 's' && dataStr[++i] == 'e') // if a boolean value false
         {
-            r_value._boolValue = false;
-            r_value_type = ValueType::boolean;
+            return Value(false);
         }
-        else if (c == IstreamState::inOjbect) // if an Json object value
+        else if (c == IstreamState::inObject) // if an Json object value
         {
-            JsonObject jo{dataStr};
-            r_value._object = &jo;
-            r_value_type = ValueType::object;
+            std::shared_ptr<JsonObject> p_jo(new JsonObject(dataStr));
+            return Value(p_jo);
         }
         else if (c == IstreamState::inArray) // if an array value
         {
+            // std::vector<std::shared_ptr<Value>> arr;
+            // std::string arrStr = dataStr.substr(i);
+            // do
+            // {
+            //     dataStr = nextData(arrStr);
+            //     std::cout << dataStr << std::endl;
+            //     Value value = extractValue(dataStr);
+            //     arr.push_back(std::make_shared<Value>(value));
+            // } while (arrStr.length() != 0);
+            // return arr;
+            
             // FOR THE SAKE OF SIMPLICITY WE INGNORE ARRAYS AT THIS POINT! Use just dymmy array.
-            Value dummyVale1;
-            dummyVale1._boolValue = false;
-            Value dummyVale2;
-            dummyVale2._boolValue = false;
-            std::vector<Value> dummyVector{dummyVale1, dummyVale2};
-            r_value._values = &dummyVector;
-            r_value_type = ValueType::array;
+            std::shared_ptr<Value> p_value0(new Value{});
+            std::shared_ptr<Value> p_value1(new Value{});
+            std::shared_ptr<Value> p_value2(new Value{});
+            std::vector<std::shared_ptr<Value>> dummyVector{p_value0, p_value1, p_value2};
+            return Value{dummyVector};
         }
         else
         {
-            r_value_type = ValueType::unknown;
+            return Value{};
         }
-        return std::pair<Value, ValueType>{r_value, r_value_type};
     }
 };
